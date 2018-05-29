@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <round.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -59,7 +60,7 @@ process_execute(const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
-  char *token, *save_ptr;
+  char *token, *save_ptr, *tmp;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -67,10 +68,12 @@ process_execute(const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-  token = strtok_r(fn_copy, " ", &save_ptr);
-  printf("%s\n", fn_copy);
+  tmp = (char*)malloc(sizeof(char));
+  strlcpy (tmp, file_name, PGSIZE);
+  token = strtok_r(tmp, " ", &save_ptr);
+  free(tmp);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (token, PRI_DEFAULT, start_process, (void*)file_name);
+  tid = thread_create (token, PRI_DEFAULT, start_process, (void*)fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
