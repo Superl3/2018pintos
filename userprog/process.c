@@ -16,10 +16,12 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+void remove_child_process(struct thread *cp);
 
 void
 argument_stack(char **parse, int count, void **esp) {
@@ -55,6 +57,25 @@ argument_stack(char **parse, int count, void **esp) {
   **(int**)esp = 0;
 }
 
+struct thread* get_child_process(int tid) {
+  struct thread *cur = thread_current();
+  struct list_elem* elem;
+  struct thread *t;
+
+  for(elem = list_begin(&cur->child_list); elem != list_end(&cur->child_list); elem = list_next(elem))
+  {
+    t = list_entry(elem, struct thread, child_elem);
+    if(tid == t->tid)
+      return t;
+  }
+  return NULL;
+}
+
+void remove_child_process(struct thread* cp) {
+  list_remove(&cp->child_elem);
+  palloc_free_page(cp);
+}
+
 tid_t
 process_execute(const char *file_name)
 {
@@ -86,10 +107,11 @@ start_process (void *file_name_)
 {
   char *file_name = file_name_;
   struct intr_frame if_;
-  bool success;
 
+  struct thread* t = thread_current();
   char *token, *save_ptr;
   char **parse;
+
   int count = 0, i;
 
   parse = (char**)malloc(256 * sizeof(char*));
@@ -106,11 +128,13 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  t->loaded = load (file_name, &if_.eip, &if_.esp);
+  sema_up(&t->load_sema);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+
+  if (!t->loaded) 
     thread_exit ();
 
   argument_stack(parse, count, &if_.esp);
@@ -140,9 +164,15 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  return -1;
+  struct thread* child = get_child_process(child_tid);
+  if(child == NULL)
+    return -1;
+  sema_down(&child->exit_sema);
+  int exit_status = (int)&child->exit_status;
+  remove_child_process(child);
+  return exit_status;
 }
 
 /* Free the current process's resources. */
