@@ -1,7 +1,4 @@
 #include "userprog/process.h"
-#include <debug.h>
-#include <inttypes.h>
-#include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,19 +14,52 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-/* Starts a new thread running a user program loaded from
-   FILENAME.  The new thread may be scheduled (and may even exit)
-   before process_execute() returns.  Returns the new process's
-   thread id, or TID_ERROR if the thread cannot be created. */
+
+void
+argument_stack(char **parse, int count, void **esp) {
+  void *arg_addr[count+1];
+  int i,len;
+
+  arg_addr[count] = 0;
+  for(i=count-1;i>=0;i--) {
+    len = strlen(parse[i])+1;
+    *esp -= len;
+    strlcpy(*esp, parse[i], len);
+    arg_addr[i] = *esp;
+  }
+  // word-align
+  *esp -= sizeof(uint8_t);
+  **(uint8_t**)esp = (uint8_t)0;
+  
+  for(i=count; i>= 0;i--) {
+    *esp -= 4;
+    **(int**)esp = (int)arg_addr[i];
+  }
+
+  //argv
+  *esp -= 4;
+  **(int**)esp = (int)*esp + 4;
+  
+  //argc
+  *esp -= 4;
+  **(int**)esp = count;
+
+  //fake ret addr
+  *esp -= 4;
+  **(int**)esp = 0;
+}
+
 tid_t
-process_execute (const char *file_name) 
+process_execute(const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+  char *token, *save_ptr;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -37,9 +67,10 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
+  token = strtok_r(fn_copy, " ", &save_ptr);
+  printf("%s\n", fn_copy);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (token, PRI_DEFAULT, start_process, (void*)file_name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -54,6 +85,19 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  char *token, *save_ptr;
+  char **parse;
+  int count = 0, i;
+
+  parse = (char**)malloc(256 * sizeof(char*));
+  
+  for(token = strtok_r(file_name, " ", &save_ptr);
+      token != NULL; token =strtok_r(NULL, " ", &save_ptr)) {
+    parse[count] = (char*)malloc(64 * sizeof(char));
+    strlcpy(parse[count], token, strlen(token) + 1);
+    count++;
+  }
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -65,6 +109,13 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+
+  argument_stack(parse, count, &if_.esp);
+  hex_dump((int)if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+
+  for(i = 0;i < count; i++)
+    free(parse[i]);
+  free(parse);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
