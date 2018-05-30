@@ -21,8 +21,6 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-void remove_child_process(struct thread *cp);
-
 void
 argument_stack(char **parse, int count, void **esp) {
   void *arg_addr[count+1];
@@ -74,6 +72,43 @@ struct thread* get_child_process(int tid) {
 void remove_child_process(struct thread* cp) {
   list_remove(&cp->child_elem);
   palloc_free_page(cp);
+}
+
+int process_add_file (struct file* f) {
+  struct thread* cur = thread_current();
+  int i;
+  if(f == NULL || cur->next_fd < 2 || cur->next_fd >= MAX_FILE)
+    return -1;
+
+  cur->fdt[cur->next_fd++] = f;
+
+  if(cur->next_fd >= MAX_FILE || cur->next_fd < 2) {
+    for(i=2;i<MAX_FILE;i++) {
+      if(cur->fdt[i] == NULL) {
+        cur->next_fd = i;
+        break;        
+      }
+    }
+  }
+
+  return 0; // success
+}
+
+struct file* process_get_file (int fd) {
+  struct thread* cur = thread_current();
+  struct file* f = NULL;
+  if(fd >= 2 && fd < MAX_FILE) {
+    f = cur->fdt[fd];
+  }
+  return f;
+}
+
+void process_close_file (int fd) {
+  struct thread* cur = thread_current();
+  if(fd >= 2 && fd < MAX_FILE) {
+    file_close(cur->fdt[fd]);
+    cur->fdt[fd] = NULL;
+  }
 }
 
 tid_t
@@ -181,6 +216,17 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+  int i;
+  for(i=2;i<MAX_FILE;i++) {
+    process_close_file(i);
+  }
+  cur->next_fd = 2;
+  free(cur->fdt);
+
+  if(cur->run_file != NULL) {
+    file_close(cur->run_file);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

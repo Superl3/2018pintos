@@ -210,12 +210,16 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  //
   struct thread *parent = thread_current();
   t->parent = parent;
   t->loaded = false;
   t->exited = false;
   list_push_back(&parent->child_list, &t->child_elem);
-
+  //
+  t->next_fd = 2;
+  t->fdt = malloc(sizeof(struct file*) * MAX_FILE);
+  
   return tid;
 }
 
@@ -574,7 +578,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      palloc_free_page (prev);
+      //palloc_free_page (prev);
     }
 }
 /* the running process's state must have been changed from
