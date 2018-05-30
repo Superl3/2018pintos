@@ -16,11 +16,14 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
-#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> parent of 697a241... hierarchical structure done
 void
 argument_stack(char **parse, int count, void **esp) {
   void *arg_addr[count+1];
@@ -55,6 +58,7 @@ argument_stack(char **parse, int count, void **esp) {
   **(int**)esp = 0;
 }
 
+<<<<<<< HEAD
 struct thread* get_child_process(int tid) {
   struct thread *cur = thread_current();
   struct list_elem* elem;
@@ -111,6 +115,8 @@ void process_close_file (int fd) {
   }
 }
 
+=======
+>>>>>>> parent of 697a241... hierarchical structure done
 tid_t
 process_execute(const char *file_name)
 {
@@ -142,11 +148,10 @@ start_process (void *file_name_)
 {
   char *file_name = file_name_;
   struct intr_frame if_;
+  bool success;
 
-  struct thread* t = thread_current();
   char *token, *save_ptr;
   char **parse;
-
   int count = 0, i;
 
   parse = (char**)malloc(256 * sizeof(char*));
@@ -163,13 +168,11 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  t->loaded = load (file_name, &if_.eip, &if_.esp);
-  sema_up(&t->load_sema);
+  success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-
-  if (!t->loaded) 
+  if (!success) 
     thread_exit ();
 
   argument_stack(parse, count, &if_.esp);
@@ -199,15 +202,9 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid) 
+process_wait (tid_t child_tid UNUSED) 
 {
-  struct thread* child = get_child_process(child_tid);
-  if(child == NULL)
-    return -1;
-  sema_down(&child->exit_sema);
-  int exit_status = (int)&child->exit_status;
-  remove_child_process(child);
-  return exit_status;
+  return -1;
 }
 
 /* Free the current process's resources. */

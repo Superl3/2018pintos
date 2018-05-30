@@ -5,11 +5,15 @@
 #include <syscall-nr.h>
 #include "threads/synch.h"
 #include "threads/interrupt.h"
+<<<<<<< HEAD
 #include "devices/input.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 
+=======
+#include "threads/thread.h"
+>>>>>>> parent of 697a241... hierarchical structure done
 
 static void syscall_handler (struct intr_frame *);
 
@@ -19,28 +23,10 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-// check addr within user-addr
-void check_address(void *addr) {
-  if(!((void*)0x80480000 <= addr && addr <= (void*)0xc0000000))
-    exit(-1);
-  return; 
-}
-
-// save argument to kernel from userstacks
-void get_argument(void *esp, int *arg, int count) {
-  int i;
-  int *tmp = esp;
-
-  check_address(esp);
-  check_address(esp + (count * 4));
-
-  for(i=0;i<count;i++)
-    arg[i] = *(int*)(++tmp);
-}	
-
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+<<<<<<< HEAD
   uint32_t *esp = f->esp;
   check_address((void*)esp);
 
@@ -135,6 +121,10 @@ tid_t exec(const char* cmd_line) {
 
 int wait(tid_t tid) {
   return process_wait(tid);
+=======
+  printf ("system call!\n");
+  thread_exit ();
+>>>>>>> parent of 697a241... hierarchical structure done
 }
 
 int open (const char* file) {

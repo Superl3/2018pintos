@@ -1,6 +1,7 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
+<<<<<<< HEAD
 #include "threads/thread.h"
 
 struct lock filesys_lock;
@@ -22,3 +23,8 @@ void seek(int, unsigned);
 unsigned tell(int);
 void close(int);
 #endif
+=======
+void syscall_init (void);
+
+#endif /* userprog/syscall.h */
+>>>>>>> parent of 697a241... hierarchical structure done

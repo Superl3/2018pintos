@@ -69,7 +69,6 @@ static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
-void hierarchical_init(struct thread *);
 static tid_t allocate_tid (void);
 
 /* Initializes the threading system by transforming the code
@@ -210,6 +209,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+<<<<<<< HEAD
   //
   struct thread *parent = thread_current();
   t->parent = parent;
@@ -220,6 +220,8 @@ thread_create (const char *name, int priority,
   t->next_fd = 2;
   t->fdt = malloc(sizeof(struct file*) * MAX_FILE);
   
+=======
+>>>>>>> parent of 697a241... hierarchical structure done
   return tid;
 }
 
@@ -301,17 +303,6 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
-  struct thread* cur = thread_current();
-/*
-  struct list_elem* elem
-  struct thread* t
-  for(elem = list_begin(&cur->child_list);
-      elem != list_end(&cur->child_list);
-      elem = list_next(elem)) {
-    t = list_entry(elem, struct thread, child_elem);
-    palloc_free_page(t);
-  }
-  palloc_free_page(cur->child_list);*/
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -320,12 +311,8 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&cur->allelem);
-
-  cur->exited = true;
-  sema_up(&cur->exit_sema);
-
-  cur->status = THREAD_DYING;
+  list_remove (&thread_current()->allelem);
+  thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
 }
@@ -482,16 +469,6 @@ is_thread (struct thread *t)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
-
-void hierarchical_init(struct thread *t) {
-  list_init(&t->child_list);
- 
-  sema_init(&t->exit_sema, 0);
-  sema_init(&t->load_sema, 0);
-
-  t->exited = t->loaded = false;
-}
-
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
@@ -506,9 +483,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
-  
-  hierarchical_init(t);
 }
+
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
 static void *
@@ -581,7 +557,9 @@ thread_schedule_tail (struct thread *prev)
       //palloc_free_page (prev);
     }
 }
-/* the running process's state must have been changed from
+
+/* Schedules a new process.  At entry, interrupts must be off and
+   the running process's state must have been changed from
    running to some other state.  This function finds another
    thread to run and switches to it.
 

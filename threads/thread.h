@@ -4,7 +4,6 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -104,16 +103,6 @@ struct thread
     int next_fd;
 
     struct file *run_file;
-
-    struct thread *parent;
-
-    struct list child_list;
-    struct list_elem child_elem;
-
-    bool loaded, exited;
-    struct semaphore load_sema, exit_sema;
-
-    int exit_status;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
